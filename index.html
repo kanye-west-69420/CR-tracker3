@@ -76,10 +76,16 @@
                 </div>
                 <div class="flex flex-col items-start sm:items-end mt-2 sm:mt-0">
                      <!-- Filters -->
-                    <div class="flex justify-end mb-2 space-x-2">
-                        <button onclick="updateDashboard('all')" id="filter-all" class="filter-btn bg-primary text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">All Time</button>
-                        <button onclick="updateDashboard(30)" id="filter-30" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">30 Days</button>
-                        <button onclick="updateDashboard(7)" id="filter-7" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">7 Days</button>
+                    <div class="flex items-center justify-end mb-2 space-x-2">
+                        <div class="flex items-center space-x-2 border-r border-gray-600 pr-2 mr-2">
+                            <label for="trophyFilterToggle" class="text-sm font-semibold text-gray-300">10k+ Trophies</label>
+                            <button id="trophyFilterToggle" onclick="toggleTrophyFilter()" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors bg-gray-600">
+                                <span class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform translate-x-1"></span>
+                            </button>
+                        </div>
+                        <button onclick="updateDashboardWithFilters('all')" id="filter-all" class="filter-btn bg-primary text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">All Time</button>
+                        <button onclick="updateDashboardWithFilters(30)" id="filter-30" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">30 Days</button>
+                        <button onclick="updateDashboardWithFilters(7)" id="filter-7" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">7 Days</button>
                     </div>
                     <div id="lastBattleTime" class="text-sm text-gray-500"></div>
                 </div>
@@ -163,6 +169,10 @@
         // --- Global state ---
         let db;
         let charts = {};
+        let currentFilter = {
+            days: 'all',
+            trophies10k: false
+        };
 
         // --- UTILITY FUNCTIONS ---
         function parseApiDateString(apiDate) {
@@ -210,6 +220,26 @@
             charts[canvasId] = new Chart(ctx, { type, data, options });
         }
         
+        // --- FILTERING LOGIC ---
+        function toggleTrophyFilter() {
+            currentFilter.trophies10k = !currentFilter.trophies10k;
+            const toggle = document.getElementById('trophyFilterToggle');
+            const circle = toggle.querySelector('span');
+            if (currentFilter.trophies10k) {
+                toggle.classList.replace('bg-gray-600', 'bg-primary');
+                circle.classList.replace('translate-x-1', 'translate-x-6');
+            } else {
+                toggle.classList.replace('bg-primary', 'bg-gray-600');
+                circle.classList.replace('translate-x-6', 'translate-x-1');
+            }
+            updateDashboard();
+        }
+
+        function updateDashboardWithFilters(days) {
+            currentFilter.days = days;
+            updateDashboard();
+        }
+
         // --- MAIN APPLICATION LOGIC ---
         async function initialize() {
             try {
@@ -239,7 +269,7 @@
                 const SQL = await initSqlJs(config);
                 db = new SQL.Database(new Uint8Array(dbFile));
 
-                await updateDashboard('all');
+                await updateDashboard();
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'block';
@@ -250,24 +280,30 @@
             }
         }
 
-        async function updateDashboard(filterDays) {
+        async function updateDashboard() {
             if (!db) return;
 
+            // Update active date filter button
             document.querySelectorAll('.filter-btn').forEach(btn => {
                 btn.classList.remove('bg-primary', 'text-white');
                 btn.classList.add('bg-gray-700', 'text-gray-200');
             });
-            const activeBtn = document.getElementById(`filter-${filterDays}`);
+            const activeBtn = document.getElementById(`filter-${currentFilter.days}`);
             activeBtn.classList.add('bg-primary', 'text-white');
             activeBtn.classList.remove('bg-gray-700', 'text-gray-200');
 
-            let whereClause = '';
-            if (filterDays !== 'all') {
+            // Build WHERE clause from current filters
+            let conditions = [];
+            if (currentFilter.days !== 'all') {
                 const date = new Date();
-                date.setDate(date.getDate() - filterDays);
+                date.setDate(date.getDate() - currentFilter.days);
                 const isoString = date.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
-                whereClause = `WHERE battleTime >= '${isoString}'`;
+                conditions.push(`battleTime >= '${isoString}'`);
             }
+            if (currentFilter.trophies10k) {
+                conditions.push(`currentTrophies >= 10000`);
+            }
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
             const playerTag = db.exec("SELECT player_tag FROM ladder_battles LIMIT 1")[0].values[0][0];
             const startDate = parseApiDateString(db.exec("SELECT MIN(battleTime) FROM ladder_battles")[0].values[0][0]);
@@ -275,11 +311,15 @@
             const lastBattleTime = lastBattleTimeResult[0]?.values[0]?.[0] ? parseApiDateString(lastBattleTimeResult[0].values[0][0]) : null;
             
             const battlesQuery = db.exec(`SELECT result, crowns, trophyChange, currentTrophies, battleTime, deck FROM ladder_battles ${whereClause} ORDER BY battleTime ASC`);
-            if (!battlesQuery.length || !battlesQuery[0].values.length) {
-                console.warn(`No battle data for period: ${filterDays}`);
+            
+            const battles = (battlesQuery.length > 0 && battlesQuery[0].values) ? battlesQuery[0].values : [];
+
+            if (battles.length === 0) {
+                // Clear UI or show a "No Data" message
+                console.warn(`No battle data for the selected filters`);
+                // You can add code here to clear charts and tables if desired
                 return;
             }
-            const battles = battlesQuery[0].values;
             
             const wins = battles.filter(b => b[0] === 'Win').length;
             const losses = battles.filter(b => b[0] === 'Loss').length;
@@ -297,6 +337,8 @@
             if (lastBattleTime) {
                 const formattedTime = lastBattleTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
                 document.getElementById('lastBattleTime').textContent = `Last Battle: ${formattedTime} IST`;
+            } else {
+                document.getElementById('lastBattleTime').textContent = '';
             }
 
             document.getElementById('currentTrophies').textContent = battles[battles.length - 1][3];
@@ -324,7 +366,7 @@
             Chart.defaults.borderColor = '#4b5563';
 
             const trophyData = battles.map(b => b[3]);
-            const maxTrophies = Math.max(...trophyData, 10000); // Ensure scale reaches at least 10k
+            const maxTrophies = Math.max(...trophyData, 10000);
 
             renderChart('trophyChart', 'line', {
                 labels: battles.map(b => formatChartDate(parseApiDateString(b[4]))),
@@ -335,7 +377,7 @@
                 scales: { 
                     y: { 
                         beginAtZero: false,
-                        max: maxTrophies + 500 // Add some padding
+                        max: maxTrophies + 500
                     } 
                 },
                 plugins: {
