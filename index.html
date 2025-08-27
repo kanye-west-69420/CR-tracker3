@@ -74,20 +74,22 @@
                     <h1 id="playerTag" class="text-3xl font-bold text-white tracking-tight">King007</h1>
                     <p id="statsSince" class="text-gray-400 mt-1">Player statistics since...</p>
                 </div>
-                <div class="flex flex-col items-start sm:items-end mt-2 sm:mt-0">
+                <div class="flex flex-col items-start sm:items-end mt-4 sm:mt-0 w-full sm:w-auto">
                      <!-- Filters -->
-                    <div class="flex items-center justify-end mb-2 space-x-2">
-                        <div class="flex items-center space-x-2 border-r border-gray-600 pr-2 mr-2">
-                            <label for="trophyFilterToggle" class="text-sm font-semibold text-gray-300">10k+ Trophies</label>
+                    <div class="flex items-center justify-end mb-2 space-x-2 flex-wrap w-full sm:w-auto">
+                        <div class="flex items-center space-x-2 border-r border-gray-600 pr-2 mr-2 mb-2 sm:mb-0">
+                            <label for="trophyFilterToggle" class="text-sm font-semibold text-gray-300 whitespace-nowrap">10k+ Trophies</label>
                             <button id="trophyFilterToggle" onclick="toggleTrophyFilter()" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors bg-gray-600">
                                 <span class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform translate-x-1"></span>
                             </button>
                         </div>
-                        <button onclick="updateDashboardWithFilters('all')" id="filter-all" class="filter-btn bg-primary text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">All Time</button>
-                        <button onclick="updateDashboardWithFilters(30)" id="filter-30" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">30 Days</button>
-                        <button onclick="updateDashboardWithFilters(7)" id="filter-7" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">7 Days</button>
+                        <div class="flex space-x-2">
+                            <button onclick="updateDashboardWithFilters('all')" id="filter-all" class="filter-btn bg-primary text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">All Time</button>
+                            <button onclick="updateDashboardWithFilters(30)" id="filter-30" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">30 Days</button>
+                            <button onclick="updateDashboardWithFilters(7)" id="filter-7" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">7 Days</button>
+                        </div>
                     </div>
-                    <div id="lastBattleTime" class="text-sm text-gray-500"></div>
+                    <div id="lastBattleTime" class="text-sm text-gray-500 w-full text-left sm:text-right"></div>
                 </div>
             </header>
 
@@ -227,10 +229,10 @@
             const circle = toggle.querySelector('span');
             if (currentFilter.trophies10k) {
                 toggle.classList.replace('bg-gray-600', 'bg-primary');
-                circle.classList.replace('translate-x-1', 'translate-x-6');
+                circle.classList.replace('translate-x-1', 'translate-x-5');
             } else {
                 toggle.classList.replace('bg-primary', 'bg-gray-600');
-                circle.classList.replace('translate-x-6', 'translate-x-1');
+                circle.classList.replace('translate-x-5', 'translate-x-1');
             }
             updateDashboard();
         }
@@ -243,7 +245,7 @@
         // --- MAIN APPLICATION LOGIC ---
         async function initialize() {
             try {
-                // The annotation plugin registers itself automatically. No manual registration is needed.
+                // The annotation plugin registers itself automatically.
                 
                 const config = { locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${filename}` };
                 const repoOwner = "kanye-west-69420";
@@ -315,7 +317,6 @@
             const battles = (battlesQuery.length > 0 && battlesQuery[0].values) ? battlesQuery[0].values : [];
 
             if (battles.length === 0) {
-                // Clear UI or show a "No Data" message
                 console.warn(`No battle data for the selected filters`);
                 // You can add code here to clear charts and tables if desired
                 return;
