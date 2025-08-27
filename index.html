@@ -49,6 +49,55 @@
             }
         }
     </script>
+    <style>
+        /* Responsive styles for the deck table, as per your excellent suggestion */
+        @media (max-width: 767px) {
+            #deckPerformanceTable thead {
+                display: none;
+            }
+            #deckPerformanceTable, #deckPerformanceTable tbody, #deckPerformanceTable tr, #deckPerformanceTable td {
+                display: block;
+                width: 100%;
+            }
+            #deckPerformanceTable tr {
+                margin-bottom: 1.5rem;
+                border-radius: 0.75rem;
+                border: 1px solid #4b5563; /* border-gray-600 */
+                padding: 1rem;
+                box-sizing: border-box;
+            }
+            #deckPerformanceTable td {
+                display: flex;
+                justify-content: space-between;
+                padding: 0.5rem 0;
+                border-bottom: 1px solid #4b5563; /* border-gray-600 */
+                text-align: right;
+            }
+            #deckPerformanceTable td:last-child {
+                border-bottom: none;
+            }
+            #deckPerformanceTable td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #9ca3af; /* text-gray-400 */
+                padding-right: 1rem;
+                text-align: left;
+            }
+            #deckPerformanceTable td.deck-cards {
+                display: block;
+                text-align: left;
+                padding: 0 0 10px 0;
+                border-bottom: 1px solid #10b981; /* primary color */
+                margin-bottom: 10px;
+                font-weight: 600;
+                color: #f3f4f6; /* text-gray-100 */
+                font-size: 0.9rem;
+            }
+            #deckPerformanceTable td.deck-cards::before {
+                display: none;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-900 text-gray-300 font-sans antialiased">
@@ -145,7 +194,7 @@
             <div class="mt-8 bg-gray-800 rounded-xl border border-gray-700 p-6">
                 <h3 class="text-lg font-semibold text-white mb-4">Top Performing Decks</h3>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left">
+                    <table id="deckPerformanceTable" class="w-full text-left">
                         <thead>
                             <tr class="border-b border-gray-700">
                                 <th class="py-3 px-4 text-xs text-gray-400 uppercase font-semibold tracking-wider">Deck</th>
@@ -303,7 +352,7 @@
                 conditions.push(`battleTime >= '${isoString}'`);
             }
             if (currentFilter.trophies10k) {
-                conditions.push(`currentTrophies >= 10000`);
+                conditions.push(`(currentTrophies - trophyChange) >= 10000`);
             }
             const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -318,7 +367,19 @@
 
             if (battles.length === 0) {
                 console.warn(`No battle data for the selected filters`);
-                // You can add code here to clear charts and tables if desired
+                // Clear UI elements
+                document.getElementById('currentTrophies').textContent = '-';
+                document.getElementById('bestTrophies').textContent = 'Best: -';
+                document.getElementById('winRate').textContent = '0%';
+                document.getElementById('totalBattles').textContent = '0 battles';
+                document.getElementById('currentStreak').textContent = 'N/A';
+                document.getElementById('bestStreak').textContent = 'Best: 0W';
+                document.getElementById('trophyChange').textContent = '0';
+                document.getElementById('winLossCount').innerHTML = `<span class="font-semibold text-cr-green">0W</span> / <span class="font-semibold text-cr-red">0L</span>`;
+                if(charts['trophyChart']) charts['trophyChart'].destroy();
+                if(charts['winLossChart']) charts['winLossChart'].destroy();
+                if(charts['crownChart']) charts['crownChart'].destroy();
+                document.getElementById('deckPerformanceTableBody').innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No data for this filter.</td></tr>';
                 return;
             }
             
@@ -435,12 +496,11 @@
                 const trophyChangeFormatted = stats.trophyChange > 0 ? `+${stats.trophyChange}` : stats.trophyChange;
                 const trophyColor = stats.trophyChange > 0 ? 'text-cr-green' : (stats.trophyChange < 0 ? 'text-cr-red' : 'text-gray-400');
                 const newRow = tableBody.insertRow();
-                newRow.className = 'border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors duration-150';
                 newRow.innerHTML = `
-                    <td class="py-3 px-4 text-sm font-mono text-gray-400 text-xs">${deck}</td>
-                    <td class="py-3 px-4 text-center text-gray-300">${stats.battles}</td>
-                    <td class="py-3 px-4 text-center font-semibold text-white">${winRate}</td>
-                    <td class="py-3 px-4 text-center font-semibold ${trophyColor}">${trophyChangeFormatted}</td>
+                    <td data-label="Deck" class="deck-cards">${deck}</td>
+                    <td data-label="Battles" class="text-gray-300">${stats.battles}</td>
+                    <td data-label="Win %" class="font-semibold text-white">${winRate}</td>
+                    <td data-label="Trophy +/-" class="font-semibold ${trophyColor}">${trophyChangeFormatted}</td>
                 `;
             });
         }
