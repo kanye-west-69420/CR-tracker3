@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clash Royale Battle Dashboard - King007</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js v3.9.1 for stability -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Chart.js Annotation Plugin v1.4.0 (compatible with Chart.js v3) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/1.4.0/chartjs-plugin-annotation.min.js"></script>
+
+    <!-- SQL.js for database handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#10b981', // A vibrant Emerald green
+                        'primary-light': '#a7f3d0',
+                        'cr-green': '#22c55e',
+                        'cr-red': '#ef4444',
+                        'cr-blue': '#3b82f6', // A nice blue for losses
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-gray-900 text-gray-300 font-sans antialiased">
+
+    <!-- Main Container -->
+    <div class="container max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- Loading State -->
+        <div id="loading" class="flex flex-col items-center justify-center min-h-[80vh]">
+            <svg class="animate-spin h-8 w-8 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-lg text-gray-400">Loading database and analyzing battles...</p>
+        </div>
+
+        <!-- Dashboard Content (hidden by default) -->
+        <main id="dashboard" class="hidden animate-fade-in">
+
+            <!-- Header Section -->
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                    <h1 id="playerTag" class="text-3xl font-bold text-white tracking-tight">King007</h1>
+                    <p id="statsSince" class="text-gray-400 mt-1">Player statistics since...</p>
+                </div>
+                <div class="flex flex-col items-start sm:items-end mt-2 sm:mt-0">
+                     <!-- Filters -->
+                    <div class="flex justify-end mb-2 space-x-2">
+                        <button onclick="updateDashboard('all')" id="filter-all" class="filter-btn bg-primary text-white font-semibold py-2 px-4 rounded-lg transition-colors text-sm">All Time</button>
+                        <button onclick="updateDashboard(30)" id="filter-30" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">30 Days</button>
+                        <button onclick="updateDashboard(7)" id="filter-7" class="filter-btn bg-gray-700 hover:bg-gray-600 text-gray-200 font-semibold py-2 px-4 rounded-lg transition-colors text-sm">7 Days</button>
+                    </div>
+                    <div id="lastBattleTime" class="text-sm text-gray-500"></div>
+                </div>
+            </header>
+
+            <!-- Main Grid Layout -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 lg:gap-8">
+                
+                <!-- Left Column (KPIs and smaller charts) -->
+                <div class="lg:col-span-2 flex flex-col gap-6 mb-6 lg:mb-0">
+                    <!-- KPIs -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                            <h3 class="text-sm font-medium text-gray-400">Current Trophies</h3>
+                            <p id="currentTrophies" class="text-3xl font-bold text-white mt-1">0</p>
+                            <p id="bestTrophies" class="text-xs text-gray-500 mt-1">Best: 0</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                            <h3 class="text-sm font-medium text-gray-400">Win Rate</h3>
+                            <p id="winRate" class="text-3xl font-bold text-white mt-1">0%</p>
+                            <p id="totalBattles" class="text-xs text-gray-500 mt-1">0 battles</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                            <h3 class="text-sm font-medium text-gray-400">Current Streak</h3>
+                            <p id="currentStreak" class="text-3xl font-bold text-white mt-1">N/A</p>
+                            <p id="bestStreak" class="text-xs text-gray-500 mt-1">Best: 0W</p>
+                        </div>
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                            <h3 class="text-sm font-medium text-gray-400">Net Trophies</h3>
+                            <p id="trophyChange" class="text-3xl font-bold text-white mt-1">0</p>
+                            <p id="winLossCount" class="text-xs text-gray-500 mt-1">&nbsp;</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Win/Loss & Crown Charts -->
+                    <div class="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                        <h3 class="text-lg font-semibold text-white mb-4">Battle Analysis</h3>
+                        <div class="grid grid-cols-2 gap-4 items-center">
+                            <div class="h-40"><canvas id="winLossChart"></canvas></div>
+                            <div class="h-40"><canvas id="crownChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column (Main Chart) -->
+                <div class="lg:col-span-3 bg-gray-800 rounded-xl border border-gray-700 p-6">
+                    <h3 class="text-lg font-semibold text-white mb-4">Trophy Progression</h3>
+                    <div class="h-[30rem]">
+                        <canvas id="trophyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Top Decks Table -->
+            <div class="mt-8 bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <h3 class="text-lg font-semibold text-white mb-4">Top Performing Decks</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="py-3 px-4 text-xs text-gray-400 uppercase font-semibold tracking-wider">Deck</th>
+                                <th class="py-3 px-4 text-xs text-gray-400 uppercase font-semibold tracking-wider text-center">Battles</th>
+                                <th class="py-3 px-4 text-xs text-gray-400 uppercase font-semibold tracking-wider text-center">Win %</th>
+                                <th class="py-3 px-4 text-xs text-gray-400 uppercase font-semibold tracking-wider text-center">Trophy +/-</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deckPerformanceTableBody">
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+        
+        <footer id="page-footer" class="text-center mt-8 text-sm text-gray-500">
+            <!-- Last updated timestamp will be inserted here -->
+        </footer>
+    </div>
+
+    <script>
+        // --- Global state ---
+        let db;
+        let charts = {};
+
+        // --- UTILITY FUNCTIONS ---
+        function parseApiDateString(apiDate) {
+            if (!apiDate || apiDate.length < 15) return null;
+            const year = apiDate.substring(0, 4);
+            const month = apiDate.substring(4, 6);
+            const day = apiDate.substring(6, 8);
+            const hour = apiDate.substring(9, 11);
+            const minute = apiDate.substring(11, 13);
+            const second = apiDate.substring(13, 15);
+            const isoString = `${year}-${month}-${day}T${hour}:${minute}:${second}.000Z`;
+            return new Date(isoString);
+        }
+
+        function formatChartDate(date) {
+            if (!date) return '';
+            return date.toLocaleDateString('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit' });
+        }
+
+        // --- DATA CALCULATION FUNCTIONS ---
+        function calculateStreaks(results) {
+            let bestStreak = 0, currentStreak = 0, currentStreakType = null;
+            results.forEach(result => {
+                if (result === currentStreakType) {
+                    currentStreak++;
+                } else {
+                    if (currentStreakType === 'Win' && currentStreak > bestStreak) bestStreak = currentStreak;
+                    currentStreakType = result;
+                    currentStreak = 1;
+                }
+            });
+            if (currentStreakType === 'Win' && currentStreak > bestStreak) bestStreak = currentStreak;
+            const lastResult = results.length > 0 ? results[results.length - 1] : null;
+            if (lastResult !== currentStreakType) {
+                 currentStreak = lastResult ? 1 : 0;
+                 currentStreakType = lastResult;
+            }
+            return { best: bestStreak, current: currentStreak, type: currentStreakType };
+        }
+        
+        // --- CHARTING FUNCTIONS ---
+        function renderChart(canvasId, type, data, options) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (charts[canvasId]) charts[canvasId].destroy();
+            charts[canvasId] = new Chart(ctx, { type, data, options });
+        }
+        
+        // --- MAIN APPLICATION LOGIC ---
+        async function initialize() {
+            try {
+                // The annotation plugin now registers itself automatically when the script is loaded.
+                // The manual Chart.register() call is no longer needed and was the source of the error.
+
+                const config = { locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${filename}` };
+                const repoOwner = "kanye-west-69420";
+                const repoName = "CR-tracker2";
+                const dbPath = "clash_royale_ladder.db";
+                const dbUrl = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${dbPath}`;
+                const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/commits?path=${dbPath}&page=1&per_page=1`;
+
+                const commitPromise = fetch(apiUrl).then(res => res.json());
+                const dataPromise = fetch(dbUrl).then(res => {
+                    if (!res.ok) throw new Error(`Failed to fetch database: ${res.statusText}`);
+                    return res.arrayBuffer();
+                });
+
+                const [commitData, dbFile] = await Promise.all([commitPromise, dataPromise]);
+
+                if (commitData && commitData.length > 0) {
+                    const lastCommitDate = new Date(commitData[0].commit.committer.date);
+                    const formattedCommitDate = lastCommitDate.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+                    document.getElementById('page-footer').textContent = `Data Last Updated: ${formattedCommitDate} IST`;
+                }
+
+                const SQL = await initSqlJs(config);
+                db = new SQL.Database(new Uint8Array(dbFile));
+
+                await updateDashboard('all');
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                document.getElementById('loading').innerHTML = `<p class="text-red-500">Error: Could not load battle data.</p><p class="text-sm text-gray-500 mt-2">${error.message}</p>`;
+            }
+        }
+
+        async function updateDashboard(filterDays) {
+            if (!db) return;
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-white');
+                btn.classList.add('bg-gray-700', 'text-gray-200');
+            });
+            const activeBtn = document.getElementById(`filter-${filterDays}`);
+            activeBtn.classList.add('bg-primary', 'text-white');
+            activeBtn.classList.remove('bg-gray-700', 'text-gray-200');
+
+            let whereClause = '';
+            if (filterDays !== 'all') {
+                const date = new Date();
+                date.setDate(date.getDate() - filterDays);
+                const isoString = date.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
+                whereClause = `WHERE battleTime >= '${isoString}'`;
+            }
+
+            const playerTag = db.exec("SELECT player_tag FROM ladder_battles LIMIT 1")[0].values[0][0];
+            const startDate = parseApiDateString(db.exec("SELECT MIN(battleTime) FROM ladder_battles")[0].values[0][0]);
+            const lastBattleTimeResult = db.exec(`SELECT MAX(battleTime) FROM ladder_battles ${whereClause}`);
+            const lastBattleTime = lastBattleTimeResult[0]?.values[0]?.[0] ? parseApiDateString(lastBattleTimeResult[0].values[0][0]) : null;
+            
+            const battlesQuery = db.exec(`SELECT result, crowns, trophyChange, currentTrophies, battleTime, deck FROM ladder_battles ${whereClause} ORDER BY battleTime ASC`);
+            if (!battlesQuery.length || !battlesQuery[0].values.length) {
+                console.warn(`No battle data for period: ${filterDays}`);
+                return;
+            }
+            const battles = battlesQuery[0].values;
+            
+            const wins = battles.filter(b => b[0] === 'Win').length;
+            const losses = battles.filter(b => b[0] === 'Loss').length;
+            const totalBattles = battles.length;
+            const totalTrophyChange = battles.reduce((sum, b) => sum + (b[2] || 0), 0);
+
+            const crownCounts = { 1: 0, 2: 0, 3: 0 };
+            battles.forEach(b => { if(b[0] === 'Win' && b[1] in crownCounts) crownCounts[b[1]]++; });
+
+            const streaks = calculateStreaks(battles.map(b => b[0]));
+
+            // --- DOM MANIPULATION ---
+            document.getElementById('playerTag').innerHTML = `King007 <span class="text-gray-500 font-normal">| ${playerTag}</span>`;
+            document.getElementById('statsSince').textContent = `Stats since ${startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+            if (lastBattleTime) {
+                const formattedTime = lastBattleTime.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
+                document.getElementById('lastBattleTime').textContent = `Last Battle: ${formattedTime} IST`;
+            }
+
+            document.getElementById('currentTrophies').textContent = battles[battles.length - 1][3];
+            document.getElementById('bestTrophies').textContent = `Best: ${Math.max(...battles.map(b => b[3]))}`;
+            document.getElementById('winRate').textContent = totalBattles > 0 ? `${((wins / totalBattles) * 100).toFixed(1)}%` : '0%';
+            document.getElementById('totalBattles').textContent = `${totalBattles} battles`;
+            
+            const trophyChangeEl = document.getElementById('trophyChange');
+            trophyChangeEl.textContent = totalTrophyChange > 0 ? `+${totalTrophyChange}` : totalTrophyChange;
+            trophyChangeEl.className = 'text-3xl font-bold text-white mt-1';
+            if (totalTrophyChange > 0) trophyChangeEl.classList.add('text-cr-green');
+            if (totalTrophyChange < 0) trophyChangeEl.classList.add('text-cr-red');
+            
+            document.getElementById('winLossCount').innerHTML = `<span class="font-semibold text-cr-green">${wins}W</span> / <span class="font-semibold text-cr-red">${losses}L</span>`;
+
+            const streakEl = document.getElementById('currentStreak');
+            streakEl.textContent = `${streaks.current} ${streaks.type === 'Win' ? 'W' : 'L'}`;
+            streakEl.className = 'text-3xl font-bold text-white mt-1';
+            if (streaks.type === 'Win') streakEl.classList.add('text-cr-green');
+            if (streaks.type === 'Loss') streakEl.classList.add('text-cr-red');
+            document.getElementById('bestStreak').textContent = `Best: ${streaks.best}W`;
+            
+            // --- CHARTS ---
+            Chart.defaults.color = '#9ca3af';
+            Chart.defaults.borderColor = '#4b5563';
+
+            const trophyData = battles.map(b => b[3]);
+            const maxTrophies = Math.max(...trophyData, 10000); // Ensure scale reaches at least 10k
+
+            renderChart('trophyChart', 'line', {
+                labels: battles.map(b => formatChartDate(parseApiDateString(b[4]))),
+                datasets: [{ label: 'Trophies', data: trophyData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, pointRadius: 2, pointBackgroundColor: '#10b981', tension: 0.3 }]
+            }, { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                scales: { 
+                    y: { 
+                        beginAtZero: false,
+                        max: maxTrophies + 500 // Add some padding
+                    } 
+                },
+                plugins: {
+                    autocolors: false,
+                    annotation: {
+                        annotations: {
+                            box1: {
+                                type: 'box',
+                                yMin: 10000,
+                                yMax: maxTrophies + 500,
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                borderColor: 'rgba(16, 185, 129, 0.3)',
+                                borderWidth: 1,
+                                label: {
+                                    content: 'Ultimate Champion League',
+                                    enabled: true,
+                                    position: 'start',
+                                    color: '#a7f3d0',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            renderChart('winLossChart', 'doughnut', {
+                labels: ['Wins', 'Losses'],
+                datasets: [{ data: [wins, losses], backgroundColor: ['#22c55e', '#3b82f6'], borderColor: '#1f2937', hoverOffset: 8 }]
+            }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } });
+
+            renderChart('crownChart', 'bar', {
+                labels: ['1', '2', '3'],
+                datasets: [{ label: 'Wins by Crown', data: Object.values(crownCounts), backgroundColor: ['#059669', '#10b981', '#6ee7b7'], borderRadius: 4 }]
+            }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { display: false } } } });
+            
+            // --- TOP DECKS TABLE ---
+            const deckPerf = battles.reduce((acc, battle) => {
+                const deck = battle[5];
+                if (!acc[deck]) acc[deck] = { battles: 0, wins: 0, trophyChange: 0 };
+                acc[deck].battles++;
+                if (battle[0] === 'Win') acc[deck].wins++;
+                acc[deck].trophyChange += battle[2] || 0;
+                return acc;
+            }, {});
+
+            const sortedDecks = Object.entries(deckPerf).sort((a, b) => b[1].battles - a[1].battles).slice(0, 10);
+            const tableBody = document.getElementById('deckPerformanceTableBody');
+            tableBody.innerHTML = '';
+            sortedDecks.forEach(([deck, stats]) => {
+                const winRate = stats.battles > 0 ? `${((stats.wins / stats.battles) * 100).toFixed(0)}%` : '0%';
+                const trophyChangeFormatted = stats.trophyChange > 0 ? `+${stats.trophyChange}` : stats.trophyChange;
+                const trophyColor = stats.trophyChange > 0 ? 'text-cr-green' : (stats.trophyChange < 0 ? 'text-cr-red' : 'text-gray-400');
+                const newRow = tableBody.insertRow();
+                newRow.className = 'border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors duration-150';
+                newRow.innerHTML = `
+                    <td class="py-3 px-4 text-sm font-mono text-gray-400 text-xs">${deck}</td>
+                    <td class="py-3 px-4 text-center text-gray-300">${stats.battles}</td>
+                    <td class="py-3 px-4 text-center font-semibold text-white">${winRate}</td>
+                    <td class="py-3 px-4 text-center font-semibold ${trophyColor}">${trophyChangeFormatted}</td>
+                `;
+            });
+        }
+
+        initialize();
+    </script>
+</body>
+</html>
