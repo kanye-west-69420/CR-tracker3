@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clash Royale Battle Dashboard - King007</title>
-    
-    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -37,7 +35,6 @@
                         'primary-light': '#a7f3d0',
                         'cr-green': '#22c55e',
                         'cr-red': '#ef4444',
-                        'cr-blue': '#3b82f6', // A nice blue for losses
                     },
                     keyframes: {
                         fadeIn: {
@@ -216,9 +213,8 @@
         // --- MAIN APPLICATION LOGIC ---
         async function initialize() {
             try {
-                // The annotation plugin now registers itself automatically when the script is loaded.
-                // The manual Chart.register() call is no longer needed and was the source of the error.
-
+                // The annotation plugin registers itself automatically. No manual registration is needed.
+                
                 const config = { locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${filename}` };
                 const repoOwner = "kanye-west-69420";
                 const repoName = "CR-tracker2";
@@ -236,7 +232,7 @@
 
                 if (commitData && commitData.length > 0) {
                     const lastCommitDate = new Date(commitData[0].commit.committer.date);
-                    const formattedCommitDate = lastCommitDate.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
+                    const formattedCommitDate = lastCommitDate.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', hour12: true, timeZone: 'Asia/Kolkata' });
                     document.getElementById('page-footer').textContent = `Data Last Updated: ${formattedCommitDate} IST`;
                 }
 
@@ -299,7 +295,7 @@
             document.getElementById('playerTag').innerHTML = `King007 <span class="text-gray-500 font-normal">| ${playerTag}</span>`;
             document.getElementById('statsSince').textContent = `Stats since ${startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`;
             if (lastBattleTime) {
-                const formattedTime = lastBattleTime.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
+                const formattedTime = lastBattleTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
                 document.getElementById('lastBattleTime').textContent = `Last Battle: ${formattedTime} IST`;
             }
 
@@ -332,7 +328,7 @@
 
             renderChart('trophyChart', 'line', {
                 labels: battles.map(b => formatChartDate(parseApiDateString(b[4]))),
-                datasets: [{ label: 'Trophies', data: trophyData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, pointRadius: 1, pointBackgroundColor: '#10b981', tension: 0.3 }]
+                datasets: [{ label: 'Trophies', data: trophyData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, pointRadius: 2, pointBackgroundColor: '#10b981', tension: 0.3 }]
             }, { 
                 responsive: true, 
                 maintainAspectRatio: false, 
@@ -370,7 +366,7 @@
 
             renderChart('winLossChart', 'doughnut', {
                 labels: ['Wins', 'Losses'],
-                datasets: [{ data: [wins, losses], backgroundColor: ['#22c55e', '#3b82f6'], borderColor: '#1f2937', hoverOffset: 8 }]
+                datasets: [{ data: [wins, losses], backgroundColor: ['#22c55e', '#ef4444'], borderColor: '#1f2937', hoverOffset: 8 }]
             }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } });
 
             renderChart('crownChart', 'bar', {
@@ -410,5 +406,3 @@
     </script>
 </body>
 </html>
-
-
