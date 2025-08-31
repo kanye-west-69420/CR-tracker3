@@ -432,14 +432,14 @@
 
             renderChart('trophyChart', 'line', {
                 labels: battles.map(b => formatChartDate(parseApiDateString(b[4]))),
-                datasets: [{ label: 'Trophies', data: trophyData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, pointRadius: 1, pointBackgroundColor: '#10b981', tension: 0.3 }]
+                datasets: [{ label: 'Trophies', data: trophyData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, pointRadius: 1, pointBackgroundColor: '#10b981', tension: 0.3, borderWidth: 1.5 }]
             }, { 
                 responsive: true, 
                 maintainAspectRatio: false, 
                 scales: { 
                     y: { 
                         beginAtZero: false,
-                        max: Math.floor((maxTrophies + 350) / 100) * 100
+                        max: Math.floor((maxTrophies + 250) / 100) * 100
                     } 
                 },
                 plugins: {
@@ -509,5 +509,6 @@
     </script>
 </body>
 </html>
+
 
 
